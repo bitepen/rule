@@ -9,7 +9,6 @@ payload:
   - 'alt8-mtalk.google.com'
   - 'android.apis.google.com'
   - 'device-provisioning.googleapis.com'
-  - 'firebaseinstallations.googleapis.com'
   - 'mtalk-dev.google.com'
   - 'mtalk-staging.google.com'
   - 'mtalk.google.com'

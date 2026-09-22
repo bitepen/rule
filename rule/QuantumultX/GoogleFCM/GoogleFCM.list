@@ -15,7 +15,6 @@ HOST,alt7-mtalk.google.com,GoogleFCM
 HOST,alt8-mtalk.google.com,GoogleFCM
 HOST,android.apis.google.com,GoogleFCM
 HOST,device-provisioning.googleapis.com,GoogleFCM
-HOST,firebaseinstallations.googleapis.com,GoogleFCM
 HOST,mtalk-dev.google.com,GoogleFCM
 HOST,mtalk-staging.google.com,GoogleFCM
 HOST,mtalk.google.com,GoogleFCM
