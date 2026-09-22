@@ -38,16 +38,35 @@ jobs:
           cp -f ./backup/ci.yaml .github/workflows/ci.yaml
           cp -f ./backup/convert.sh script/convert.sh
 
+      # 1. 自动剔除黑名单规则
+      - name: Remove Excluded Rules
+        run: |
+          if [ -d "./remove_rules" ]; then
+            echo "正在剔除黑名单规则..."
+            find ./remove_rules -type f -name "*.list" | while IFS= read -r exclude_file; do
+              target_name=$(basename "$exclude_file")
+              # 在 rule 目录下寻找对应的所有同名文件
+              find ./rule -type f -name "$target_name" | while IFS= read -r target_file; do
+                while IFS= read -r del_pattern || [ -n "$del_pattern" ]; do
+                  # 跳过空行和纯注释
+                  [[ -z "$del_pattern" || "$del_pattern" =~ ^[[:space:]]*# ]] && continue
+                  # 利用 sed 匹配包含该域名的整行并直接删除
+                  sed -i "/$del_pattern/d" "$target_file"
+                  echo "已从 $target_file 剔除: $del_pattern"
+                done < "$exclude_file"
+              done
+            done
+          fi
+
+      # 2. 自动追加自定义规则
       - name: Append Custom Rules
         run: |
           if [ -d "./custom_rules" ]; then
             echo "正在应用自定义规则补丁..."
             find ./custom_rules -type f -name "*.list" | while IFS= read -r patch_file; do
               target_name=$(basename "$patch_file")
-              # 遍历所有同名规则文件，逐行检查，只有不存在时才追加
               find ./rule -type f -name "$target_name" | while IFS= read -r target_file; do
                 while IFS= read -r rule_line || [ -n "$rule_line" ]; do
-                  # 跳过空行和纯注释
                   [[ -z "$rule_line" || "$rule_line" =~ ^[[:space:]]*# ]] && continue
                   if ! grep -qxF "$rule_line" "$target_file"; then
                     echo "$rule_line" >> "$target_file"
