@@ -38,21 +38,24 @@ jobs:
           cp -f ./backup/ci.yaml .github/workflows/ci.yaml
           cp -f ./backup/convert.sh script/convert.sh
 
-      # 1. 自动剔除黑名单规则
+      # 1. 自动剔除黑名单规则（自动清理换行符）
       - name: Remove Excluded Rules
         run: |
           if [ -d "./remove_rules" ]; then
             echo "正在剔除黑名单规则..."
             find ./remove_rules -type f -name "*.list" | while IFS= read -r exclude_file; do
               target_name=$(basename "$exclude_file")
-              # 在 rule 目录下寻找对应的所有同名文件
               find ./rule -type f -name "$target_name" | while IFS= read -r target_file; do
                 while IFS= read -r del_pattern || [ -n "$del_pattern" ]; do
+                  # 清理 Windows \r 换行符和首尾多余空格
+                  del_pattern=$(echo "$del_pattern" | tr -d '\r' | xargs)
+
                   # 跳过空行和纯注释
-                  [[ -z "$del_pattern" || "$del_pattern" =~ ^[[:space:]]*# ]] && continue
-                  # 利用 sed 匹配包含该域名的整行并直接删除
+                  [[ -z "$del_pattern" || "$del_pattern" =~ ^# ]] && continue
+
+                  # 打印调试信息并执行整行匹配删除
+                  echo "正在从 $target_file 剔除包含: [$del_pattern]"
                   sed -i "/$del_pattern/d" "$target_file"
-                  echo "已从 $target_file 剔除: $del_pattern"
                 done < "$exclude_file"
               done
             done
@@ -79,23 +82,40 @@ jobs:
 
       - name: Background run subconverter
         run: |
-          curl -s https://api.github.com/repos/tindy2013/subconverter/releases \
+          SUBCONV_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/tindy2013/subconverter/releases \
             | grep "browser_download_url.*subconverter_linux64.tar.gz" \
             | head -n 1 \
-            | cut -d '"' -f 4 \
-            | xargs wget -q
+            | cut -d '"' -f 4)
+          
+          if [ -z "$SUBCONV_URL" ]; then
+            echo "❌ 获取 subconverter 下载链接失败，尝试使用备用直链..."
+            SUBCONV_URL="https://github.com/tindy2013/subconverter/releases/latest/download/subconverter_linux64.tar.gz"
+          fi
+
+          echo "下载地址: $SUBCONV_URL"
+          wget -q -O subconverter_linux64.tar.gz "$SUBCONV_URL"
           tar -xf subconverter_linux64.tar.gz
           ./subconverter/subconverter &
           python3 -m http.server 8080 --bind 127.0.0.1 --directory './rule/' &
 
       - name: Background run mihomo
         run: |
-          curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases \
+          MIHOMO_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/MetaCubeX/mihomo/releases \
             | grep "browser_download_url.*mihomo-linux-amd64-alpha.*.deb" \
             | head -n 1 \
-            | cut -d '"' -f 4 \
-            | xargs wget -q -O mihomo-linux-amd64-alpha.deb
-          sudo apt install --fix-missing ./mihomo-linux-amd64-alpha.deb
+            | cut -d '"' -f 4)
+
+          if [ -z "$MIHOMO_URL" ]; then
+            echo "❌ 获取 mihomo 下载链接失败，尝试获取 latest release..."
+            MIHOMO_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/MetaCubeX/mihomo/releases/latest \
+              | grep "browser_download_url.*mihomo-linux-amd64.*.deb" \
+              | head -n 1 \
+              | cut -d '"' -f 4)
+          fi
+
+          echo "下载地址: $MIHOMO_URL"
+          wget -q -O mihomo-linux-amd64.deb "$MIHOMO_URL"
+          sudo apt install --fix-missing ./mihomo-linux-amd64.deb
           /usr/bin/mihomo &
 
       - name: start convert
