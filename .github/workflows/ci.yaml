@@ -82,23 +82,40 @@ jobs:
 
       - name: Background run subconverter
         run: |
-          curl -s https://api.github.com/repos/tindy2013/subconverter/releases \
+          SUBCONV_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/tindy2013/subconverter/releases \
             | grep "browser_download_url.*subconverter_linux64.tar.gz" \
             | head -n 1 \
-            | cut -d '"' -f 4 \
-            | xargs wget -q
+            | cut -d '"' -f 4)
+          
+          if [ -z "$SUBCONV_URL" ]; then
+            echo "❌ 获取 subconverter 下载链接失败，尝试使用备用直链..."
+            SUBCONV_URL="https://github.com/tindy2013/subconverter/releases/latest/download/subconverter_linux64.tar.gz"
+          fi
+
+          echo "下载地址: $SUBCONV_URL"
+          wget -q -O subconverter_linux64.tar.gz "$SUBCONV_URL"
           tar -xf subconverter_linux64.tar.gz
           ./subconverter/subconverter &
           python3 -m http.server 8080 --bind 127.0.0.1 --directory './rule/' &
 
       - name: Background run mihomo
         run: |
-          curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases \
+          MIHOMO_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/MetaCubeX/mihomo/releases \
             | grep "browser_download_url.*mihomo-linux-amd64-alpha.*.deb" \
             | head -n 1 \
-            | cut -d '"' -f 4 \
-            | xargs wget -q -O mihomo-linux-amd64-alpha.deb
-          sudo apt install --fix-missing ./mihomo-linux-amd64-alpha.deb
+            | cut -d '"' -f 4)
+
+          if [ -z "$MIHOMO_URL" ]; then
+            echo "❌ 获取 mihomo 下载链接失败，尝试获取 latest release..."
+            MIHOMO_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/MetaCubeX/mihomo/releases/latest \
+              | grep "browser_download_url.*mihomo-linux-amd64.*.deb" \
+              | head -n 1 \
+              | cut -d '"' -f 4)
+          fi
+
+          echo "下载地址: $MIHOMO_URL"
+          wget -q -O mihomo-linux-amd64.deb "$MIHOMO_URL"
+          sudo apt install --fix-missing ./mihomo-linux-amd64.deb
           /usr/bin/mihomo &
 
       - name: start convert
