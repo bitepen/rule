@@ -1,1 +1,2 @@
 +.threads.net
++.threads.com
