@@ -38,6 +38,26 @@ jobs:
           cp -f ./backup/ci.yaml .github/workflows/ci.yaml
           cp -f ./backup/convert.sh script/convert.sh
 
+      - name: Append Custom Rules
+        run: |
+          if [ -d "./custom_rules" ]; then
+            echo "正在应用自定义规则补丁..."
+            find ./custom_rules -type f -name "*.list" | while IFS= read -r patch_file; do
+              target_name=$(basename "$patch_file")
+              # 遍历所有同名规则文件，逐行检查，只有不存在时才追加
+              find ./rule -type f -name "$target_name" | while IFS= read -r target_file; do
+                while IFS= read -r rule_line || [ -n "$rule_line" ]; do
+                  # 跳过空行和纯注释
+                  [[ -z "$rule_line" || "$rule_line" =~ ^[[:space:]]*# ]] && continue
+                  if ! grep -qxF "$rule_line" "$target_file"; then
+                    echo "$rule_line" >> "$target_file"
+                    echo "已向 $target_file 追加: $rule_line"
+                  fi
+                done < "$patch_file"
+              done
+            done
+          fi
+
       - name: Background run subconverter
         run: |
           curl -s https://api.github.com/repos/tindy2013/subconverter/releases \
